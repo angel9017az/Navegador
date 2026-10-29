@@ -1,0 +1,39 @@
+name: Build Kairo (Windows)
+
+on:
+  workflow_dispatch:   # botón "Run workflow" en la pestaña Actions
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - name: Descargar tu repo (el proyecto Kairo)
+        uses: actions/checkout@v4
+        with:
+          path: kairo
+
+      - name: Clonar cef-project
+        run: git clone --depth 1 https://github.com/chromiumembedded/cef-project.git cef-project
+
+      - name: Integrar Kairo en cef-project
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse kairo cef-project/kairo
+          Add-Content cef-project/CMakeLists.txt "`nadd_subdirectory(kairo)"
+
+      - name: Configurar (descarga CEF, tarda varios minutos)
+        working-directory: cef-project
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Compilar
+        working-directory: cef-project
+        run: cmake --build build --config Release --target kairo
+
+      - name: Subir el resultado
+        uses: actions/upload-artifact@v4
+        with:
+          name: kairo-windows
+          path: cef-project/build/kairo/Release/
+          if-no-files-found: error
