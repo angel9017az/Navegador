@@ -32,6 +32,14 @@ namespace {
 
 constexpr int kBaseUiHeight = 92;  // alto inicial de la barra superior (px)
 
+// Compatibilidad entre versiones de CEF: las firmas de OnBeforePopup y
+// cef_runtime_style_t no son iguales en todas las ramas.
+#if defined(CEF_RUNTIME_STYLE_ALLOY)
+#define KAIRO_HAS_RUNTIME_STYLE 1
+#else
+#define KAIRO_HAS_RUNTIME_STYLE 0
+#endif
+
 // ---------------------------------------------------------------- utilidades
 
 class FnTask : public CefTask {
@@ -115,7 +123,9 @@ class ViewDelegate : public CefBrowserViewDelegate {
   void set_height(int h) { height_ = h; }
 
   CefSize GetPreferredSize(CefRefPtr<CefView>) override { return CefSize(0, height_); }
+#if KAIRO_HAS_RUNTIME_STYLE
   cef_runtime_style_t GetBrowserRuntimeStyle() override { return CEF_RUNTIME_STYLE_ALLOY; }
+#endif
 
  private:
   int height_;
@@ -212,19 +222,32 @@ class TabClient : public CefClient,
   void OnAfterCreated(CefRefPtr<CefBrowser> browser) override {
     Shell::Get().OnTabCreated(id_, browser);
   }
-  // NOTA: la firma de OnBeforePopup cambia entre versiones de CEF (p. ej. el
-  // parámetro popup_id). Si no compila, copia la de include/cef_life_span_handler.h.
-  bool OnBeforePopup(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame>, int /*popup_id*/,
-                     const CefString& target_url, const CefString&,
-                     cef_window_open_disposition_t, bool, const CefPopupFeatures&,
-                     CefWindowInfo&, CefRefPtr<CefClient>&, CefBrowserSettings&,
-                     CefRefPtr<CefDictionaryValue>&, bool*) override {
+
+#if defined(CEF_VERSION_MAJOR) && CEF_VERSION_MAJOR >= 123
+  bool OnBeforePopup(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, int popup_id,
+                     const CefString& target_url, const CefString& target_frame_name,
+                     cef_window_open_disposition_t target_disposition, bool user_gesture,
+                     const CefPopupFeatures& popupFeatures, CefWindowInfo& windowInfo,
+                     CefRefPtr<CefClient>& client, CefBrowserSettings& settings,
+                     CefRefPtr<CefDictionaryValue>& extra_info, bool* no_javascript_access) override {
     std::string url = target_url.ToString();
     if (IsAllowedUrl(url)) {
       CefPostTask(TID_UI, new FnTask([url] { Shell::Get().NewTab(url); }));
     }
-    return true;  // cancela la ventana emergente: se abre como pestaña
+    return true;
   }
+#else
+  bool OnBeforePopup(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame>, const CefString& target_url,
+                     const CefString&, cef_window_open_disposition_t, bool,
+                     const CefPopupFeatures&, CefWindowInfo&, CefRefPtr<CefClient>&,
+                     CefBrowserSettings&, CefRefPtr<CefDictionaryValue>&, bool*) override {
+    std::string url = target_url.ToString();
+    if (IsAllowedUrl(url)) {
+      CefPostTask(TID_UI, new FnTask([url] { Shell::Get().NewTab(url); }));
+    }
+    return true;
+  }
+#endif
 
   // CefDisplayHandler
   void OnTitleChange(CefRefPtr<CefBrowser>, const CefString& title) override {
@@ -237,19 +260,17 @@ class TabClient : public CefClient,
 
   // CefLoadHandler
   void OnLoadingStateChange(CefRefPtr<CefBrowser>, bool loading, bool back,
-                            bool fwd) override {
+                           bool fwd) override {
     Shell::Get().OnTabLoading(id_, loading, back, fwd);
   }
 
   // CefRequestHandler / CefResourceRequestHandler: aquí vive el adblock
   CefRefPtr<CefResourceRequestHandler> GetResourceRequestHandler(
       CefRefPtr<CefBrowser>, CefRefPtr<CefFrame>, CefRefPtr<CefRequest>, bool, bool,
-      const CefString&, bool&) override {
-    return this;
-  }
+      const CefString&, bool&) override { return this; }
   cef_return_value_t OnBeforeResourceLoad(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame>,
-                                          CefRefPtr<CefRequest> request,
-                                          CefRefPtr<CefCallback>) override {
+                                         CefRefPtr<CefRequest> request,
+                                         CefRefPtr<CefCallback>) override {
     Shell& s = Shell::Get();
     if (s.adblock_on.load() && s.adblock &&
         request->GetResourceType() != RT_MAIN_FRAME &&
@@ -291,12 +312,24 @@ class ShellClient : public CefClient,
     router_->OnBeforeClose(browser);
     Shell::Get().ui_browser = nullptr;
   }
-  bool OnBeforePopup(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame>, int, const CefString&,
+
+#if defined(CEF_VERSION_MAJOR) && CEF_VERSION_MAJOR >= 123
+  bool OnBeforePopup(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, int popup_id,
+                    const CefString& target_url, const CefString& target_frame_name,
+                    cef_window_open_disposition_t target_disposition, bool user_gesture,
+                    const CefPopupFeatures& popupFeatures, CefWindowInfo& windowInfo,
+                    CefRefPtr<CefClient>& client, CefBrowserSettings& settings,
+                    CefRefPtr<CefDictionaryValue>& extra_info, bool* no_javascript_access) override {
+    return true;  // la interfaz nunca abre ventanas
+  }
+#else
+  bool OnBeforePopup(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame>, const CefString&,
                      const CefString&, cef_window_open_disposition_t, bool,
                      const CefPopupFeatures&, CefWindowInfo&, CefRefPtr<CefClient>&,
                      CefBrowserSettings&, CefRefPtr<CefDictionaryValue>&, bool*) override {
     return true;  // la interfaz nunca abre ventanas
   }
+#endif
 
   // La interfaz jamás debe navegar a la web.
   bool OnBeforeBrowse(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
@@ -332,7 +365,9 @@ class WindowDelegate : public CefWindowDelegate {
     Shell::Get().OnAccelerator(command_id);
     return true;
   }
+#if KAIRO_HAS_RUNTIME_STYLE
   cef_runtime_style_t GetWindowRuntimeStyle() override { return CEF_RUNTIME_STYLE_ALLOY; }
+#endif
 
  private:
   IMPLEMENT_REFCOUNTING(WindowDelegate);
