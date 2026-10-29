@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Kairo</title>
+<style>
+:root{--bg:#0e1320;--panel:#171d30;--text:#e8ecff;--muted:#8a93b8;--accent:#7c9cff;--r:14px;
+  --font:"Segoe UI Variable","Segoe UI",system-ui,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{display:flex;flex-direction:column;background:var(--bg);color:var(--text);font:13px var(--font);
+  user-select:none;cursor:default}
+
+/* Pestañas */
+#tabs{display:flex;align-items:center;gap:6px;height:40px;padding:0 10px;flex:none}
+.compact #tabs{height:30px}
+.tab{flex:0 1 190px;min-width:44px;height:28px;display:flex;align-items:center;gap:8px;padding:0 5px 0 10px;
+  border-radius:var(--r);color:var(--muted);overflow:hidden;white-space:nowrap;
+  transition:background .15s,color .15s}
+.tab:hover{background:color-mix(in srgb,var(--text) 8%,transparent)}
+.tab.on{color:var(--text);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 30%,var(--panel)),var(--panel));
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent)}
+.tab .t{flex:1;overflow:hidden;text-overflow:ellipsis}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;opacity:.8}
+.dot.load{width:11px;height:11px;background:none;border:2px solid var(--accent);border-top-color:transparent;
+  opacity:1;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.x,.plus{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex:none}
+.x{opacity:.55}
+.x:hover,.plus:hover{opacity:1;background:color-mix(in srgb,var(--text) 15%,transparent)}
+.plus{color:var(--muted)}
+
+/* Barra de herramientas */
+#bar{display:flex;align-items:center;gap:6px;height:52px;padding:0 10px;flex:none;background:var(--panel);
+  border-radius:var(--r) var(--r) 0 0;border-bottom:1px solid color-mix(in srgb,var(--text) 8%,transparent)}
+.compact #bar{height:42px}
+.ib{position:relative;width:34px;height:34px;border:0;border-radius:var(--r);background:transparent;
+  color:var(--text);display:grid;place-items:center;flex:none}
+.compact .ib{width:30px;height:30px}
+.ib:hover:not(:disabled){background:color-mix(in srgb,var(--text) 10%,transparent)}
+.ib:disabled{opacity:.3}
+.ib.on{color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent)}
+#cnt{position:absolute;top:1px;right:0;font-size:9px;font-weight:700;color:var(--accent)}
+#omni{flex:1;display:flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:999px;
+  background:var(--bg);border:1px solid transparent;transition:border-color .15s,box-shadow .15s}
+.compact #omni{height:30px}
+#omni:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}
+#lock{color:var(--muted);display:grid;place-items:center}
+#lock.bad{color:#ff6b6b}
+#url{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font:inherit;user-select:text}
+
+/* Panel de personalización (la barra crece al abrirlo) */
+#drawer{display:none;flex:1;overflow:auto;padding:18px 22px;background:var(--panel)}
+.open #drawer{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px;align-content:start}
+h4{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{padding:6px 13px;border-radius:999px;border:1px solid color-mix(in srgb,var(--text) 18%,transparent);
+  background:transparent;color:var(--text);font:inherit}
+.chip:hover{border-color:var(--accent)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#06070d}
+input[type=text],select{width:100%;padding:8px 12px;border-radius:calc(var(--r) - 4px);font:inherit;
+  border:1px solid color-mix(in srgb,var(--text) 18%,transparent);background:var(--bg);color:var(--text);
+  outline:0;user-select:text}
+input[type=text]:focus,select:focus{border-color:var(--accent)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+input[type=color]{width:44px;height:30px;border:0;background:none;padding:0}
+small{color:var(--muted);display:block;margin-top:6px;line-height:1.4}
+
+#toast{position:fixed;top:5px;left:50%;transform:translateX(-50%);max-width:70%;padding:5px 14px;border-radius:999px;
+  background:var(--accent);color:#06070d;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
+</style>
+</head>
+<body>
+<div id="toast"></div>
+<div id="tabs"></div>
+<div id="bar">
+  <button class="ib" id="back" title="Atrás"></button>
+  <button class="ib" id="fwd" title="Adelante"></button>
+  <button class="ib" id="reload" title="Recargar (Ctrl+R)"></button>
+  <div id="omni"><span id="lock"></span><input id="url" type="text" spellcheck="false" placeholder="Busca o escribe una dirección"></div>
+  <button class="ib" id="shield" title="Bloqueador de anuncios"><span id="cnt"></span></button>
+  <button class="ib" id="vpn" title="Proxy / VPN"></button>
+  <button class="ib" id="cfg" title="Personalizar"></button>
+</div>
+
+<div id="drawer">
+  <section><h4>Tema</h4><div class="row" id="themes"></div></section>
+  <section><h4>Acento</h4><div class="row"><input type="color" id="accent"><button class="chip" id="accentReset">Restablecer</button></div></section>
+  <section><h4>Redondeo</h4><input type="range" id="radius" min="0" max="24" step="1"></section>
+  <section><h4>Densidad</h4><div class="row"><button class="chip" id="dComfy">Cómoda</button><button class="chip" id="dCompact">Compacta</button></div></section>
+  <section><h4>Buscador</h4><select id="engine"></select></section>
+  <section><h4>Proxy / VPN</h4>
+    <input type="text" id="proxy" placeholder="socks5://127.0.0.1:1080" spellcheck="false">
+    <small>Actívalo con el botón del globo. Es un proxy para el tráfico del navegador: necesitas tu propio servidor (SOCKS5/HTTP). Con él activo, WebRTC no filtra tu IP.</small>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const ico = (n, s = 18) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${I[n]}</svg>`; // solo contenido estático
+const I = {
+  back: '<path d="M15 18l-6-6 6-6"/>',
+  fwd: '<path d="M9 6l6 6-6 6"/>',
+  reload: '<path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+  sliders: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+  lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  globeS: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/>'
+};
+
+const THEMES = {
+  aurora:   {n: 'Aurora',   bg: '#0e1320', panel: '#171d30', text: '#e8ecff', muted: '#8a93b8', accent: '#7c9cff'},
+  brasa:    {n: 'Brasa',    bg: '#1a1210', panel: '#261a16', text: '#fff1e8', muted: '#b79484', accent: '#ff7a45'},
+  papel:    {n: 'Papel',    bg: '#ece7dd', panel: '#fbf8f1', text: '#25211c', muted: '#7d7466', accent: '#c2410c'},
+  terminal: {n: 'Terminal', bg: '#050a06', panel: '#0a140c', text: '#b8ffc7', muted: '#5e9a6c', accent: '#2bff6a',
+             font: '"Cascadia Mono",Consolas,monospace'}
+};
+const DEFFONT = '"Segoe UI Variable","Segoe UI",system-ui,sans-serif';
+const ENGINES = {
+  ddg:       {n: 'DuckDuckGo', u: 'https://duckduckgo.com/?q=%s'},
+  brave:     {n: 'Brave Search', u: 'https://search.brave.com/search?q=%s'},
+  startpage: {n: 'Startpage', u: 'https://www.startpage.com/do/search?q=%s'},
+  google:    {n: 'Google', u: 'https://www.google.com/search?q=%s'}
+};
+
+// ---- ajustes persistentes
+const DEF = {theme: 'aurora', accent: '', radius: 14, compact: false, engine: 'ddg',
+             proxy: 'socks5://127.0.0.1:1080', proxyOn: false, adblock: true};
+let S = {...DEF};
+try { Object.assign(S, JSON.parse(localStorage.getItem('kairo.s') || '{}')); } catch (e) {}
+const save = () => { try { localStorage.setItem('kairo.s', JSON.stringify(S)); } catch (e) {} };
+
+// ---- puente con C++
+let toastT;
+function toast(m) {
+  const t = $('toast'); t.textContent = m; t.style.opacity = 1;
+  clearTimeout(toastT); toastT = setTimeout(() => t.style.opacity = 0, 3200);
+}
+function send(request, ok) {
+  if (!window.cefQuery) return;
+  cefQuery({request, persistent: false, onSuccess: ok || (() => {}), onFailure: (c, m) => toast(m || 'Error')});
+}
+
+// ---- estado que llega desde C++
+let tabs = [], active = -1, blocked = 0, adblockOn = true, proxyActive = false, drawerOpen = false;
+window.kairo = {
+  state(s) { tabs = s.tabs; active = s.active; blocked = s.blocked; adblockOn = s.adblock; proxyActive = s.proxy; render(); },
+  focusUrl() { $('url').focus(); $('url').select(); }
+};
+
+function render() {
+  // IMPORTANTE: títulos y URLs vienen de páginas web (no confiables). Solo textContent / value, nunca innerHTML.
+  const bar = $('tabs'); bar.textContent = '';
+  for (const t of tabs) {
+    const el = document.createElement('div');
+    el.className = 'tab' + (t.id === active ? ' on' : '');
+    el.title = t.title;
+    const d = document.createElement('span'); d.className = 'dot' + (t.loading ? ' load' : '');
+    const n = document.createElement('span'); n.className = 't'; n.textContent = t.title || t.url;
+    const x = document.createElement('span'); x.className = 'x'; x.innerHTML = ico('x', 12);
+    x.onclick = e => { e.stopPropagation(); send('close|' + t.id); };
+    el.onmousedown = e => {
+      if (e.button === 1) { e.preventDefault(); send('close|' + t.id); }
+      else if (e.button === 0 && !e.target.closest('.x')) send('activate|' + t.id);
+    };
+    el.append(d, n, x);
+    bar.append(el);
+  }
+  const plus = document.createElement('div'); plus.className = 'plus'; plus.innerHTML = ico('plus', 14);
+  plus.onclick = () => send('new|');
+  bar.append(plus);
+
+  const a = tabs.find(t => t.id === active);
+  $('back').disabled = !a || !a.back;
+  $('fwd').disabled = !a || !a.fwd;
+  $('reload').innerHTML = ico(a && a.loading ? 'x' : 'reload');
+  const isNew = !a || /\/ui\/newtab\.html/i.test(a.url);
+  if (document.activeElement !== $('url')) $('url').value = isNew ? '' : a.url;
+  const lock = $('lock');
+  lock.className = a && /^http:/i.test(a.url) ? 'bad' : '';
+  lock.innerHTML = a && /^https:/i.test(a.url) ? ico('lock', 14) : ico('globeS', 14);
+
+  $('shield').classList.toggle('on', adblockOn);
+  $('cnt').textContent = blocked > 999 ? '999+' : (blocked || '');
+  $('vpn').classList.toggle('on', proxyActive);
+  $('vpn').title = proxyActive ? 'Proxy activo (clic para desactivar)' : 'Activar proxy / VPN';
+}
+
+// ---- tema y personalización
+function sendHeight() { send('uiheight|' + ((S.compact ? 72 : 92) + (drawerOpen ? 330 : 0))); }
+
+function apply() {
+  const t = THEMES[S.theme] || THEMES.aurora, st = document.documentElement.style;
+  for (const k of ['bg', 'panel', 'text', 'muted']) st.setProperty('--' + k, t[k]);
+  const accent = S.accent || t.accent;
+  st.setProperty('--accent', accent);
+  st.setProperty('--r', S.radius + 'px');
+  st.setProperty('--font', t.font || DEFFONT);
+  document.body.classList.toggle('compact', S.compact);
+  // La página de nueva pestaña recibe el tema por el hash de su URL
+  const h = new URLSearchParams({bg: t.bg, panel: t.panel, text: t.text, muted: t.muted, accent,
+                                 r: S.radius, font: t.font || '', se: ENGINES[S.engine].u});
+  send('theme|' + h.toString());
+  sendHeight(); save(); sync();
+}
+
+function sync() {
+  document.querySelectorAll('#themes .chip').forEach(b => b.classList.toggle('on', b.dataset.k === S.theme));
+  $('accent').value = S.accent || (THEMES[S.theme] || THEMES.aurora).accent;
+  $('radius').value = S.radius;
+  $('dComfy').classList.toggle('on', !S.compact);
+  $('dCompact').classList.toggle('on', S.compact);
+  $('engine').value = S.engine;
+  if (document.activeElement !== $('proxy')) $('proxy').value = S.proxy;
+}
+
+for (const k of Object.keys(THEMES)) {
+  const b = document.createElement('button');
+  b.className = 'chip'; b.dataset.k = k; b.textContent = THEMES[k].n;
+  b.onclick = () => { S.theme = k; S.accent = ''; apply(); };
+  $('themes').append(b);
+}
+for (const k of Object.keys(ENGINES)) {
+  const o = document.createElement('option'); o.value = k; o.textContent = ENGINES[k].n; $('engine').append(o);
+}
+$('accent').oninput = e => { S.accent = e.target.value; apply(); };
+$('accentReset').onclick = () => { S.accent = ''; apply(); };
+$('radius').oninput = e => { S.radius = +e.target.value; apply(); };
+$('dComfy').onclick = () => { S.compact = false; apply(); };
+$('dCompact').onclick = () => { S.compact = true; apply(); };
+$('engine').onchange = e => { S.engine = e.target.value; apply(); };
+$('proxy').oninput = e => { S.proxy = e.target.value.trim(); save(); };
+
+// ---- barra
+function toUrl(t) {
+  t = t.trim(); if (!t) return null;
+  if (/^(https?|file):\/\//i.test(t)) return t;
+  if (/^[\w-]+(\.[\w-]+)+(:\d+)?([\/?#].*)?$/.test(t) || /^localhost(:\d+)?([\/?#].*)?$/.test(t)) return 'https://' + t;
+  return ENGINES[S.engine].u.replace('%s', encodeURIComponent(t));
+}
+$('back').innerHTML = ico('back'); $('fwd').innerHTML = ico('fwd');
+$('vpn').innerHTML = ico('globe'); $('cfg').innerHTML = ico('sliders');
+$('shield').insertAdjacentHTML('afterbegin', ico('shield'));
+
+$('back').onclick = () => send('back');
+$('fwd').onclick = () => send('forward');
+$('reload').onclick = () => { const a = tabs.find(t => t.id === active); send(a && a.loading ? 'stop' : 'reload'); };
+$('shield').onclick = () => { S.adblock = !adblockOn; save(); send('adblock|' + (S.adblock ? 'on' : 'off')); };
+$('cfg').onclick = () => { drawerOpen = !drawerOpen; document.body.classList.toggle('open', drawerOpen); $('cfg').classList.toggle('on', drawerOpen); sendHeight(); };
+$('vpn').onclick = () => {
+  if (proxyActive) { send('proxy|off|', () => { S.proxyOn = false; save(); toast('Proxy desactivado'); }); return; }
+  const v = $('proxy').value.trim();
+  if (!v) { if (!drawerOpen) $('cfg').click(); $('proxy').focus(); return; }
+  S.proxy = v;
+  send('proxy|on|' + v, () => { S.proxyOn = true; save(); toast('Proxy activado'); });
+};
+$('url').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { const u = toUrl($('url').value); if (u) send('go|' + active + '|' + u); $('url').blur(); }
+  if (e.key === 'Escape') { $('url').blur(); }
+});
+$('url').addEventListener('blur', render);
+
+// ---- arranque: tema -> ajustes -> "ready" (C++ crea la primera pestaña con el tema ya aplicado)
+apply();
+send('adblock|' + (S.adblock ? 'on' : 'off'));
+if (S.proxyOn) send('proxy|on|' + S.proxy);
+render();
+send('ready');
+</script>
+</body>
+</html>
