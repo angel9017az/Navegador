@@ -7,7 +7,12 @@
 #include "app.h"
 
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int) {
+#if defined(CEF_VERSION_MAJOR) && CEF_VERSION_MAJOR >= 144
+  // CEF 144+ removed the legacy DPI bootstrap helper; the runtime already
+  // handles high-DPI mode for modern builds.
+#else
   CefEnableHighDPISupport();
+#endif
 
   CefMainArgs main_args(hInstance);
   CefRefPtr<BrowserApp> app(new BrowserApp);

@@ -40,6 +40,22 @@ constexpr int kBaseUiHeight = 92;  // alto inicial de la barra superior (px)
 #define KAIRO_HAS_RUNTIME_STYLE 0
 #endif
 
+void SetWindowAccelerator(CefRefPtr<CefWindow> window, int command_id, int key_code,
+                         bool shift_pressed, bool ctrl_pressed, bool alt_pressed) {
+#if defined(CEF_VERSION_MAJOR) && CEF_VERSION_MAJOR >= 144
+  CefKeyEvent event;
+  event.type = KEYEVENT_RAWKEYDOWN;
+  event.modifiers = (shift_pressed ? EVENTFLAG_SHIFT_DOWN : 0) |
+                    (ctrl_pressed ? EVENTFLAG_CONTROL_DOWN : 0) |
+                    (alt_pressed ? EVENTFLAG_ALT_DOWN : 0);
+  event.windows_key_code = key_code;
+  event.native_key_code = key_code;
+  window->SetAccelerator(command_id, event);
+#else
+  window->SetAccelerator(command_id, key_code, shift_pressed, ctrl_pressed, alt_pressed);
+#endif
+}
+
 // ---------------------------------------------------------------- utilidades
 
 class FnTask : public CefTask {
@@ -407,11 +423,11 @@ void Shell::BuildWindow(CefRefPtr<CefWindow> w) {
   layout->SetFlexForView(content, 1);  // el contenido ocupa todo el resto
 
   // Atajos: Ctrl+T, Ctrl+W, Ctrl+L, Ctrl+R, Ctrl+Tab
-  w->SetAccelerator(1, 'T', false, true, false);
-  w->SetAccelerator(2, 'W', false, true, false);
-  w->SetAccelerator(3, 'L', false, true, false);
-  w->SetAccelerator(4, 'R', false, true, false);
-  w->SetAccelerator(5, VK_TAB, false, true, false);
+  SetWindowAccelerator(w, 1, 'T', false, true, false);
+  SetWindowAccelerator(w, 2, 'W', false, true, false);
+  SetWindowAccelerator(w, 3, 'L', false, true, false);
+  SetWindowAccelerator(w, 4, 'R', false, true, false);
+  SetWindowAccelerator(w, 5, VK_TAB, false, true, false);
 
   w->Show();
   // La primera pestaña se crea cuando la interfaz avisa "ready" (ya con el tema).
