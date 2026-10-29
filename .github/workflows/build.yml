@@ -23,6 +23,11 @@ jobs:
           Copy-Item -Recurse kairo cef-project/kairo
           Add-Content cef-project/CMakeLists.txt "`nadd_subdirectory(kairo)"
 
+      - name: Usar Python 3.11 (el script de CEF no funciona con 3.12)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Configurar (descarga CEF, tarda varios minutos)
         working-directory: cef-project
         run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
