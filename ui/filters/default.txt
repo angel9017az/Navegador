@@ -1,0 +1,30 @@
+# Lista base de Kairo (dominios de anuncios y rastreo comunes).
+# Puedes añadir más archivos .txt en esta carpeta: formato hosts (0.0.0.0 dominio),
+# reglas ||dominio^ o un dominio por línea. Se cargan todos al arrancar.
+# Ejemplo de lista grande en formato hosts: StevenBlack/hosts (unified hosts).
+
+doubleclick.net
+googlesyndication.com
+googleadservices.com
+adservice.google.com
+2mdn.net
+adnxs.com
+amazon-adsystem.com
+adsrvr.org
+advertising.com
+casalemedia.com
+criteo.com
+criteo.net
+moatads.com
+mgid.com
+openx.net
+outbrain.com
+popads.net
+pubmatic.com
+quantserve.com
+rubiconproject.com
+scorecardresearch.com
+taboola.com
+zedo.com
+hotjar.com
+ads.yahoo.com
