@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Nueva pestaña</title>
+<style>
+:root{--bg:#0e1320;--panel:#171d30;--text:#e8ecff;--muted:#8a93b8;--accent:#7c9cff;--r:14px;
+  --font:"Segoe UI Variable","Segoe UI",system-ui,sans-serif}
+html,body{height:100%;margin:0}
+body{display:grid;place-items:center;color:var(--text);font-family:var(--font);
+  background:radial-gradient(1100px 560px at 50% -10%,color-mix(in srgb,var(--accent) 22%,var(--bg)),var(--bg))}
+main{text-align:center;width:min(640px,90vw)}
+#clock{font-size:96px;font-weight:200;letter-spacing:-2px;line-height:1}
+#date{color:var(--muted);margin:10px 0 38px;text-transform:capitalize}
+input{width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:16px 24px;border-radius:999px;
+  border:1px solid color-mix(in srgb,var(--text) 15%,transparent);
+  background:color-mix(in srgb,var(--panel) 85%,transparent);color:var(--text);outline:0;
+  transition:border-color .15s,box-shadow .15s}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 25%,transparent)}
+</style>
+</head>
+<body>
+<main>
+  <div id="clock"></div>
+  <div id="date"></div>
+  <form id="f"><input id="q" autofocus autocomplete="off" placeholder="Busca en la web…"></form>
+</main>
+<script>
+// El tema llega en el hash (#bg=..&panel=..&accent=..&r=..&font=..&se=..)
+const p = new URLSearchParams(location.hash.slice(1));
+const st = document.documentElement.style;
+for (const k of ['bg', 'panel', 'text', 'muted', 'accent']) if (p.get(k)) st.setProperty('--' + k, p.get(k));
+if (p.get('r')) st.setProperty('--r', p.get('r') + 'px');
+if (p.get('font')) st.setProperty('--font', p.get('font'));
+
+let se = p.get('se') || 'https://duckduckgo.com/?q=%s';
+if (!se.startsWith('https://') || !se.includes('%s')) se = 'https://duckduckgo.com/?q=%s';
+
+function tick() {
+  const d = new Date();
+  document.getElementById('clock').textContent =
+    d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+  document.getElementById('date').textContent =
+    d.toLocaleDateString([], {weekday: 'long', day: 'numeric', month: 'long'});
+}
+tick(); setInterval(tick, 10000);
+
+document.getElementById('f').addEventListener('submit', e => {
+  e.preventDefault();
+  const t = document.getElementById('q').value.trim();
+  if (!t) return;
+  if (/^[\w-]+(\.[\w-]+)+([\/?#].*)?$/.test(t)) location.href = 'https://' + t;
+  else location.href = se.replace('%s', encodeURIComponent(t));
+});
+</script>
+</body>
+</html>
